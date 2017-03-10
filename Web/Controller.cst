@@ -1,0 +1,171 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="C#" Src="" Inherits="OutputFileCodeTemplate" Debug="False" Description="Template description here."  ResponseEncoding="UTF-8"%>
+<%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema"  Category=""  Optional="True" Description="the table name"   %>
+<%@ Property Name="ProjectName" Type="System.String"  Category="Strings"  Optional="True" Description="项目名称,如绍兴行政处罚: SXXZCF"   %>
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Linq" %>
+<%var pkeys = GetPrimaryKeys(this.SourceTable).ToList();
+var camName = GetCamelName(this.SourceTable.Name);
+var rspName = camName[0].ToString().ToLower() + camName.Substring(1) + "Repository" ;%>
+using System;
+using System.Web.Mvc;
+
+using Newtonsoft.Json;
+
+using Boanda.Web;
+using Boanda.<%= ProjectName%>.Data.Repository.<%= camName%>;
+using Boanda.<%= ProjectName%>.Data.Entity.<%= camName%>;
+using Boanda.<%= ProjectName%>.Web.Areas.<%= ProjectName%>.Validators;
+using Boanda.<%= ProjectName%>.Web.Controllers;
+using Boanda.<%= ProjectName%>.Data;
+
+namespace Boanda.<%= ProjectName%>.Web.Areas.<%= ProjectName%>.Controllers
+{
+    /// <summary>
+    /// 污染源基本信息
+    /// </summary>
+    [Authorize]
+    [Auth("<%=this.SourceTable.Name%>")]
+    public class <%=camName%>Controller : BaseController<<%= this.SourceTable.Name%>>
+    {
+        private <%=camName%>Repository <%=rspName%> = new <%=camName%>Repository();
+
+        #region 页面
+
+        /// <summary>
+        /// 列表页面
+        /// </summary>
+        /// <returns></returns>
+        public ActionResult Index()
+        {
+            SetBasicAuthentization();
+            return View();
+        }
+
+        /// <summary>
+        /// 新增或者编辑
+        /// </summary>
+        public ActionResult AddOrEdit(string id)
+        {
+            if (id.IsEmpty()) return View(new <%=this.SourceTable.Name%>());
+            else
+            {
+                var entity = <%=rspName%>.Get(id);
+                if (entity != null)
+                    return View(entity);
+                else return ResouceNotFound();
+            }
+        }
+
+        /// <summary>
+        /// 详情
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public ActionResult Detail(string id)
+        {
+            var entity = <%=rspName%>.GetForDetail(id);
+            ExceptionUtil.CheckResourceIsExist(entity);
+            return View(entity);
+        }
+
+        /// <summary>
+        /// excel导出
+        /// </summary>
+        [Auth(Operations.Export)]
+        public void Export([Bind(Exclude = "PageIndex,PageSize,sortfield,sortorder,Sorts")]<%=camName%>PageInput input)
+        {
+            var table = <%=rspName%>.GetExportTable(input);
+            var tplName = Server.MapPath("~/Export/Templates/<%=camName%>/<%=camName%>.xls");
+
+            NPOIExcelHelper.OutputFile(table, tplName, "污染源基本信息.xls");
+        }
+
+        #endregion
+
+        #region ajax
+        /// <summary>
+        /// 获取分页数据
+        /// </summary>
+        public ActionResult GetPage(<%=camName%>PageInput input)
+        {
+            var entity = <%=rspName%>.GetPage(input);
+
+            return Json(new AjaxResult(entity.Items, (int)entity.Total));
+        }
+
+        /// <summary>
+        /// 详情页数据
+        /// </summary>
+        /// <param name="id">主键</param>
+        public ActionResult Get(string id)
+        {
+            var entity = <%=rspName%>.Get(id);
+            ExceptionUtil.CheckResourceIsExist(entity);
+
+            return Json(new AjaxResult(entity), JsonRequestBehavior.AllowGet);
+        }
+
+        /// <summary>
+        /// 删除
+        /// </summary>
+        /// <param name="id">主键</param>
+        [HttpPost]
+        [Auth(Operations.Delete)]
+        public ActionResult Delete(string id)
+        {
+            var entity = <%=rspName%>.Get(id);
+            ExceptionUtil.CheckResourceIsExist(entity);
+            <%=rspName%>.Delete(id);
+
+            return Json(new AjaxResult());
+        }
+
+        /// <summary>
+        /// 新增
+        /// </summary>
+        /// <param name="entity">表单的json数据</param>
+        [HttpPost]
+        [Auth(Operations.Save)]
+        public ActionResult Add(string entity)
+        {
+            var rs = new AjaxResult();
+            var validator = new <%= camName%>Validator();
+            var newEntity = JsonConvert.DeserializeObject<<%=this.SourceTable.Name%>>(entity);
+            if (ValidateEntityInput(validator, newEntity, rs))
+            {
+                var exists = <%=rspName%>.Get(newEntity.XH);
+                newEntity.XH = Guid.NewGuid().ToString();
+                newEntity.CJSJ = newEntity.XGSJ = DateTime.Now;
+                newEntity.CJR = HttpContext.User.Identity.Name;
+                <%=rspName%>.Insert(newEntity);
+            }
+
+            return Json(rs);
+        }
+
+        /// <summary>
+        /// 编辑
+        /// </summary>
+        [Auth(Operations.Update)]
+        public ActionResult Edit(string entity, string id)
+        {
+            var rs = new AjaxResult();
+            var validator = new <%= camName%>Validator();
+            var exist = <%=rspName%>.Get(id);
+            ExceptionUtil.CheckResourceIsExist(exist);
+            JsonConvert.PopulateObject(entity, exist);
+            if (ValidateEntityInput(validator, exist, rs))
+            {
+                exist.XGSJ = DateTime.Now;
+                exist.XGR = HttpContext.User.Identity.Name;
+                <%=rspName%>.Update(exist);
+            }
+
+            return Json(rs);
+        }
+
+        #endregion
+    }
+}

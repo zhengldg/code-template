@@ -1,0 +1,256 @@
+﻿<%@ CodeTemplate Language="C#" Debug="False" TargetLanguage="Text"  Inherits=""  Description=" Generate the whole project codes"  Encoding="utf-8"  ResponseEncoding="utf-8" %>
+<%@ Property Name="SourceDatabase" Type="SchemaExplorer.DatabaseSchema" Category="" Optional="True" Description="Database containing the tables." %>
+<%@ Property Name="SourceTables"  Type="SchemaExplorer.TableSchemaCollection" Default="" Optional="True" Category=""%>
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Assembly Name="CodeSmith.BaseTemplates" %>
+<%@ Import Namespace="CodeSmith.BaseTemplates" %>
+<%@ Assembly Name="CodeSmith.CustomProperties" %>
+<%@ Import Namespace="CodeSmith.CustomProperties" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Import Namespace="System.Design" %>
+<%@ Import Namespace="System.Collections.Generic" %>
+
+<%@ Register Name="ModelTpl" Template="D:\work\code\PLATFORM_V0.1\CodeSmith\Data\Entity.cst" MergeProperties="True" ExcludeProperties="" %>
+<%@ Register Name="PageInputTpl" Template="D:\work\code\PLATFORM_V0.1\CodeSmith\Data\PageInput.cst" MergeProperties="True" ExcludeProperties="" %>
+<%@ Register Name="RspTpl" Template="D:\work\code\PLATFORM_V0.1\CodeSmith\Data\Repository.cst" MergeProperties="True" ExcludeProperties="" %>
+<%@ Register Name="ControllerTpl" Template="D:\work\code\PLATFORM_V0.1\CodeSmith\Web\Controller.cst" MergeProperties="True" ExcludeProperties="" %>
+<%@ Register Name="ValidatorTpl" Template="D:\work\code\PLATFORM_V0.1\CodeSmith\Web\Validator.cst" MergeProperties="True" ExcludeProperties="" %>
+<%
+    DeleteFiles(this.OutputDirectory, true);
+    DirctoryValidator(this.OutputDirectory);
+    //实例化模版
+    ModelTpl model = new ModelTpl();
+    RspTpl rsp = new RspTpl();
+    PageInputTpl pageInput = new PageInputTpl();
+    ControllerTpl controller = new ControllerTpl();
+    ValidatorTpl validator = new ValidatorTpl();
+    
+    //路径
+    string dataDir = this.OutputDirectory + @"\Data\";
+    string repDir =  this.OutputDirectory + @"\Repository\";
+    string controllerDir =  this.OutputDirectory + @"\Controller\";
+    string validatorDir =  this.OutputDirectory + @"\Validator\";
+    //检查目录是否存在,不存在则创建
+
+    DirctoryValidator(dataDir);
+    DirctoryValidator(repDir);
+    DirctoryValidator(controllerDir);
+
+    if(this.SourceTables != null && this.SourceTables.Count >0)  //多表生成
+    {
+        foreach(TableSchema tb in this.SourceTables)
+        {
+        }
+    }
+    else  if(this.SourceTable != null)  //单表生成
+    {
+        var camName =  GetCamelName(this.SourceTable.Name);
+        // 实体
+        var modelDir = dataDir + @"\"+ camName + @"\";
+        DirctoryValidator(modelDir);
+        model.SourceTable = this.SourceTable ;
+        model.ProjectName = this.ProjectName;
+        RenderToUtf8File(model.RenderToString(), modelDir + this.SourceTable.Name + ".cs");
+        // PageInput
+        pageInput.SourceTable = this.SourceTable ;
+        pageInput.ProjectName = this.ProjectName;
+        RenderToUtf8File(pageInput.RenderToString(), modelDir + camName + "PageInput.cs");
+        
+        // Repository
+        var modelRepDir = repDir + @"\"+ camName + @"\";
+         DirctoryValidator(modelRepDir);
+        rsp.SourceTable = this.SourceTable ;
+        rsp.ProjectName = this.ProjectName;
+        RenderToUtf8File(rsp.RenderToString(), modelRepDir +  camName + "Repository.cs");
+        
+        // Controller
+        var controller2Dir = controllerDir + @"\"+ camName + @"\";
+         DirctoryValidator(controller2Dir);
+        controller.SourceTable = this.SourceTable ;
+        controller.ProjectName = this.ProjectName;
+        RenderToUtf8File(controller.RenderToString(), controller2Dir +  camName + "Controller.cs");
+        
+        // Validator
+        var validator2Dir = validatorDir + @"\"+ camName + @"\";
+        DirctoryValidator(validator2Dir);
+        validator.SourceTable = this.SourceTable ;
+        validator.ProjectName = this.ProjectName;
+        RenderToUtf8File(validator.RenderToString(), validator2Dir +  camName + "Validator.cs");
+        
+        System.Diagnostics.Process.Start("explorer.exe", this.OutputDirectory);
+    }
+%>
+
+<script runat="template">
+
+private void RenderToUtf8File(string content, string file) {
+    var enc = new System.Text.UTF8Encoding(true);// System.Text.Encoding.GetEncoding("UTF-8"); 
+    var txt = new System.IO.StreamWriter(file, false, enc);
+    txt.Write(content);
+    txt.Close();
+}
+
+
+//指定项目输入目录
+private string _outputDirectory = @"E:\Templates";
+
+[Editor(typeof (System.Windows.Forms.Design.FolderNameEditor), typeof (System.Drawing.Design.UITypeEditor)),
+Category("Custom"), Description("Output directory.")]
+public string OutputDirectory {
+    get {
+        return _outputDirectory;
+    }
+    set {
+        _outputDirectory = value;
+    }
+}
+
+//目录检查器
+private void DirctoryValidator(string dircPath) {
+    if (!System.IO.Directory.Exists(dircPath)) {
+        System.IO.Directory.CreateDirectory(dircPath);
+    }
+}
+
+
+// 删除指定目录的所有文件   
+private void DeleteFiles(string targetDir, bool delSubDir) {
+    foreach (string fileName in System.IO.Directory.GetFiles(targetDir)) {
+        System.IO.File.SetAttributes(fileName, System.IO.FileAttributes.Normal);
+        System.IO.File.Delete(fileName);
+    }
+    if (delSubDir) {
+        System.IO.DirectoryInfo dir = new System.IO.DirectoryInfo(targetDir);
+        foreach (System.IO.DirectoryInfo subDi in dir.GetDirectories()) {
+            DeleteFiles(subDi.FullName, true);
+            subDi.Delete();
+        }
+    }
+}
+
+public enum DataTypeEnum {
+    ORACLECLIENT,
+    SQLCLIENT,
+    OLEDB
+}
+
+public static string GetCSharpDataTypeByDBColumn(ColumnSchema column) {
+    switch (column.DataType) {
+        case DbType.AnsiString: return "string";
+        case DbType.AnsiStringFixedLength: return "string";
+        case DbType.Binary: return "byte[]";
+        case DbType.Boolean: return "bool" + (column.AllowDBNull? "?":"");
+        case DbType.Byte: return "decimal" + (column.AllowDBNull? "?":"");
+        case DbType.Currency: return "decimal" + (column.AllowDBNull? "?":"");
+        case DbType.Date: return "DateTime" + (column.AllowDBNull? "?":"");
+        case DbType.DateTime: return "DateTime" + (column.AllowDBNull? "?":"");
+        case DbType.Decimal: return "decimal" + (column.AllowDBNull? "?":"");
+        case DbType.Double: return "double" + (column.AllowDBNull? "?":"");
+        case DbType.Guid: return "Guid";
+        case DbType.Int16: return "short" + (column.AllowDBNull? "?":"");
+        case DbType.Int32: return "int" + (column.AllowDBNull? "?":"");
+        case DbType.Int64: return "long" + (column.AllowDBNull? "?":"");
+        case DbType.Object: return "object";
+        case DbType.SByte: return "sbyte" + (column.AllowDBNull? "?":"");
+        case DbType.Single: return "float" + (column.AllowDBNull? "?":"");
+        case DbType.String: return "string";
+        case DbType.StringFixedLength: return "string";
+        case DbType.Time: return "TimeSpan" + (column.AllowDBNull? "?":"");
+        case DbType.UInt16: return "ushort" + (column.AllowDBNull? "?":"");
+        case DbType.UInt32: return "uint" + (column.AllowDBNull? "?":"");
+        case DbType.UInt64: return "ulong" + (column.AllowDBNull? "?":"");
+        case DbType.VarNumeric: return "decimal" + (column.AllowDBNull? "?":"");
+        default:
+            return "string";
+    }
+}
+public static string GetDataTypeByDBColumn(ColumnSchema column) {
+    switch (column.DataType) {
+        case DbType.AnsiString: return "DbType.String";
+        case DbType.AnsiStringFixedLength: return "DbType.String";
+        case DbType.Binary: return "DbType.Binary";
+        case DbType.Boolean: return "DbType.Boolean";
+        case DbType.Byte: return "DbType.Byte";
+        case DbType.Currency: return "DbType.Decimal";
+        case DbType.Date: return "DbType.DateTime";
+        case DbType.DateTime: return "DbType.DateTime";
+        case DbType.Decimal: return "DbType.Decimal";
+        case DbType.Double: return "DbType.Double";
+        case DbType.Guid: return "DbType.String";
+        case DbType.Int16: return "DbType.Int32";
+        case DbType.Int32: return "DbType.Int32";
+        case DbType.Int64: return "DbType.Int32";
+        case DbType.Object: return "DbType.Object";
+        case DbType.SByte: return "DbType.SByte";
+        case DbType.Single: return "DbType.Decimal";
+        case DbType.String: return "DbType.String";
+        case DbType.StringFixedLength: return "DbType.String";
+        case DbType.Time: return "DbType.DateTime";
+        case DbType.UInt16: return "DbType.Decimal";
+        case DbType.UInt32: return "DbType.Decimal";
+        case DbType.UInt64: return "DbType.Decimal";
+        case DbType.VarNumeric: return "DbType.Decimal";
+        default:
+            return "DbType.String";
+    }
+}
+public static string GetSqlDbType(ColumnSchema column) {
+    switch (column.NativeType) {
+        case "bigint": return "BigInt";
+        case "binary": return "Binary";
+        case "bit": return "Bit";
+        case "char": return "Char";
+        case "datetime": return "DateTime";
+        case "decimal": return "Decimal";
+        case "float": return "Float";
+        case "image": return "Image";
+        case "int": return "Int";
+        case "money": return "Money";
+        case "nchar": return "NChar";
+        case "ntext": return "NText";
+        case "numeric": return "Decimal";
+        case "nvarchar": return "NVarChar";
+        case "real": return "Real";
+        case "smalldatetime": return "SmallDateTime";
+        case "smallint": return "SmallInt";
+        case "smallmoney": return "SmallMoney";
+        case "sql_variant": return "Variant";
+        case "sysname": return "NChar";
+        case "text": return "Text";
+        case "timestamp": return "Timestamp";
+        case "tinyint": return "TinyInt";
+        case "uniqueidentifier": return "UniqueIdentifier";
+        case "varbinary": return "VarBinary";
+        case "varchar": return "VarChar";
+        default: return "__UNKNOWN__" + column.NativeType;
+    }
+}
+//骆驼式命名
+public static string GetCamelName(string strName) {
+    string result = string.Empty;
+    foreach (string col in strName.Split('_')) {
+        if (col.Length >1)
+      result += col.Substring(0, 1).ToUpper() + col.Substring(1).ToLower();
+        else
+      result += col.ToLower();
+    }
+    return result.Substring(0, 1).ToUpper() + result.Substring(1);
+}
+
+public static string GetFirstToLower(string str) {
+    if (!string.IsNullOrEmpty(str) && str.Length > 0) {
+        string t = str[0].ToString().ToLower();
+        str.Remove(0);
+        str.Insert(0, t);
+    }
+    return str;
+}
+
+public static IEnumerable<ColumnSchema> GetPrimaryKeys(SchemaExplorer.TableSchema table) {
+    foreach (var item in table.Columns) {
+        if (item.IsPrimaryKeyMember) yield return item;
+    }
+}
+
+</script>

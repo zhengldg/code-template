@@ -1,0 +1,34 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="C#" Src="" Inherits="OutputFileCodeTemplate" Debug="False" Description="Template description here."  ResponseEncoding="UTF-8"%>
+<%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema"  Category=""  Optional="True" Description="the table name"   %>
+<%@ Property Name="ProjectName" Type="System.String"  Category="Strings"  Optional="True" Description="项目名称,如绍兴行政处罚: SXXZCF"   %>
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Linq" %>
+<%var pkeys = GetPrimaryKeys(this.SourceTable).ToList();
+var camName = GetCamelName(this.SourceTable.Name); %>
+using System;
+
+using Boanda.Data.Extensions;
+
+/// <summary>
+/// <%= SourceTable.Description%>
+/// </summary>
+namespace Boanda.<%= this.ProjectName %>.Data.Entity.<%= camName%>
+{
+    [Table("<%=this.SourceTable.Name%>")]
+    public class <%=this.SourceTable.Name%>
+    {
+        #region Property 
+		<%foreach (ColumnSchema column in  SourceTable.Columns) {  %>
+        
+		/// <summary>
+        /// <%=column.Description.Replace("\n", " ") %>
+        /// </summary>
+        <% if(column.Name == "XH"  ||  column.IsPrimaryKeyMember) { %> [ExplicitKey] <% } %>
+		public <%=GetCSharpDataTypeByDBColumn(column)%> <%=column.Name %> { get;set; }
+        <%}%>
+        
+		#endregion
+    }
+}

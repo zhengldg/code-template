@@ -1,0 +1,24 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>博安达纯净框架代码下载</title>
+</head>
+<body>
+    <div>
+        <label for="name"><span style="color:red;"> *</span> 项目名称：</label>  <input type="text" id="name" width="200" />
+        <input style="margin-left:10px;" type="button" value="下载" id="btnDownload" />
+    </div>
+   <script type="text/javascript">
+       document.getElementById('btnDownload').onclick = function () {
+           var name = document.getElementById('name').value;
+           if (!name) {
+               alert('请输入项目名称');
+               return false;
+           }
+           document.getElementById('name').value = '';
+           window.location.assign('download.ashx?name=' + name);
+       }
+   </script>
+</body>
+</html>

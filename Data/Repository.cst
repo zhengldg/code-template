@@ -1,0 +1,84 @@
+﻿<%@ CodeTemplate Language="C#" TargetLanguage="C#" Src="" Inherits="OutputFileCodeTemplate" Debug="False" Description="Template description here."  ResponseEncoding="UTF-8"%>
+<%@ Property Name="SourceTable" Type="SchemaExplorer.TableSchema"  Category=""  Optional="True" Description="the table name"   %>
+<%@ Property Name="ProjectName" Type="System.String"  Category="Strings"  Optional="True" Description="项目名称,如绍兴行政处罚: SXXZCF"   %>
+<%@ Assembly Name="SchemaExplorer" %>
+<%@ Assembly Name="System.Design" %>
+<%@ Import Namespace="SchemaExplorer" %>
+<%@ Import Namespace="System.Linq" %>
+<% var camName = GetCamelName(this.SourceTable.Name);%>
+using System;
+using System.Data;
+using System.Text;
+
+using Boanda.Data;
+using Boanda.Data.Repository;
+using Boanda.<%=ProjectName %>.Data.Entity.<%= camName%>;
+
+namespace Boanda.<%=ProjectName %>.Data.Repository.<%= camName%>
+{
+    public class <%= camName%>Repository : Repository<<%= this.SourceTable.Name%>>
+    {
+        /// <summary>
+        /// 获取分页数据
+        /// </summary>
+        public PageResult<<%= this.SourceTable.Name%>> GetPage(<%=camName%>PageInput input)
+        {
+            StringBuilder where = new StringBuilder();
+            if(input.Filter.IsNotEmpty())
+            {
+                where.AppendFormat(" AND XH like @Filter ");
+                input.Filter = input.Filter.SqlLike() ;
+            }
+            if(input.Kssj.HasValue)
+            {
+                where.AppendFormat(" AND CJSJ >= @Kssj");
+            }
+            if (input.Jssj.HasValue)
+            {
+                where.AppendFormat(" AND CJSJ < @Jssj");
+            }
+
+            var data = Paging(@"SELECT * from <%= this.SourceTable.Name%> ", input, where.ToString());
+            return data;
+        }
+
+        /// <summary>
+        /// 获取详情页面实体
+        /// </summary>
+        public <%= this.SourceTable.Name%> GetForDetail(string id)
+        {
+            var sql = @"SELECT  * from  <%= this.SourceTable.Name%> ";
+            var data = DbContext.QuerySingleOrDefault<<%= this.SourceTable.Name%>>(sql, new { id });
+
+            return data;
+        }
+
+        /// <summary>
+        /// 获取导出表格数据
+        /// 注意查询的列需要与模板相对应，例如，模板有A,B,C3列，那么应该select A,B,C3列
+        /// </summary>
+        public DataTable GetExportTable(<%= camName%>PageInput input)
+        {
+            StringBuilder sql = new StringBuilder(@"SELECT  * from  <%= this.SourceTable.Name%> ");
+            if (input.Filter.IsNotEmpty())
+            {
+                sql.AppendFormat(" AND XH like @Filter ");
+                input.Filter = input.Filter.SqlLike();
+            }
+            if (input.Kssj.HasValue)
+            {
+                sql.AppendFormat(" AND CJSJ >= @Kssj");
+            }
+            if (input.Jssj.HasValue)
+            {
+                sql.AppendFormat(" AND CJSJ < @Jssj");
+            }
+            DataTable table = new DataTable();
+            using(var reader = DbContext.ExecuteReader(sql.ToString(), input))
+            {
+                table.Load(reader);
+                return table;
+            }
+        }
+    }
+}
